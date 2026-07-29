@@ -1,9 +1,12 @@
 from pydicom import Dataset
 
 PRIVATE_TAGS={
-    'GESequence':0x0019109c,
-    'GEpolarizations_epi': 0x0019107e,
-    'GEpolarizations_gre': 0x001910f2,
+    # 'GESequence':0x0019109c,
+    # 'GEpolarizations_epi': 0x0019107e,
+    # 'GEpolarizations_gre': 0x001910f2,
+    'GESequence': (0x0019,0x109c),
+    'GEpolarizations_epi': (0x0019,0x107e),
+    'GEpolarizations_gre': (0x0019,0x10f2),
 }
 
 MRE_REQ_LABELS = [
@@ -53,10 +56,15 @@ def private_value_contains(data:Dataset, tag, value) -> bool:
     return value in data_value.value
 
 def get_private_float_or_zero(data:Dataset, tag) -> float:
-    data_value = data.get(tag, None)
-    if data_value == None:
+    data_value = data.get(tag, 0)
+    try: # in case we got a DataElement
+        data_value = data_value.value
+    except AttributeError:
+        pass
+    try:
+        return float(data_value)
+    except:
         return 0.0
-    return float(data_value)
 
 def append_dataset(data:Dataset, key:str, value:str):
     if data.get(key, None) == None:
@@ -278,39 +286,84 @@ RULES_MAYO_GE = [
         setattr(data, "data_source", "seepi_mre"),
     ]
 },
+
 # 'raw' IQ data from kevin glaser EPI MRE, GE sequence name epimre
-# could be 2D or 3D, both are named epimre.
+# GeSequence == epimre could be 2D or 3D, use 
 # on-scanner IQ is ORIGINAL/PRIMARY/OTHER
 # on-scanner MP is DERIVED/SECONDARY/PROCESSED (which is incorrect, but here we are), along with the wave and other contrasts
 {   'name':'mayo_ge_epi_mre_iq',
     'rules': [
         lambda data: private_value_equals(data,PRIVATE_TAGS['GESequence'],'epimre'),
+        # exclude on-scanner recon data and RGB
         lambda data: not data.get('SeriesDescription', '').startswith(('PE', 'FE', 'SS', 'Stiffness', 'RGB', 'Storage', 'Loss', 'Divergence')),
         lambda data: data.get('PhotometricInterpretation', '') != 'RGB',
+        # exclude 3D data where polarizations > 2
+        lambda data: get_private_float_or_zero(data,PRIVATE_TAGS['GEpolarizations_epi']) <= 2,
         lambda data: 'ORIGINAL'  in data.get('ImageType',''), # on-scanner IQ data
-        lambda data: 'PRIMARY'   in data.get('ImageType',''), # on-scanner IQ data
+        lambda data: 'PRIMARY'   in data.get('ImageType',''), 
     ],
     'criteria': all,
     'action':lambda data: [
         append_dataset(data, "label", "mre_iqepi"),
         setattr(data, "data_source", "seepi_mre"), 
-        setattr(data, "digest_type", "mmdi3v")
+        setattr(data, "digest_type", "mmdi2d"), 
+        
     ]
 },
-
 # this is to try to flag on-scanner recon contrasts
 {   'name':'mayo_ge_epi_mre_onscanner',
     'rules': [
         lambda data: private_value_equals(data,PRIVATE_TAGS['GESequence'],'epimre'),
         #lambda data: data.get('SeriesDescription', '').startswith(('PE', 'FE', 'SS', 'Stiffness', 'RGB', 'Storage', 'Loss', 'Divergence')),
-        lambda data: data.get('PhotometricInterpretation', '') != 'RGB',
+        #lambda data: data.get('PhotometricInterpretation', '') != 'RGB',
+        lambda data: 'SECONDARY'  in data.get('ImageType',''), # on-scanner recon
+        lambda data: 'DERIVED'    in data.get('ImageType',''),
     ],
     'criteria': all,
     'action':lambda data: [
         append_dataset(data, "label", "mre_ge_other"),
+        # setattr(data, "data_source", "seepi_mre"), 
+    ]
+},
+
+#arrived with Free Breathing data, mag and phase image types are now tagged ORIGINAL/PRIMARY/MAG/MAGZ
+#and ORIGINAL/PRIMARY/PHASE/PHASEZ
+{   'name':'mayo_ge_epi_mre_mag',
+    'rules': [
+        lambda data: private_value_equals(data,PRIVATE_TAGS['GESequence'],'epimre'),
+        lambda data: not data.get('SeriesDescription', '').startswith(('PE', 'FE', 'SS', 'Stiffness', 'RGB', 'Storage', 'Loss', 'Divergence')),
+        lambda data: data.get('PhotometricInterpretation', '') != 'RGB',
+        # lambda data: 'ORIGINAL'  in data.get('ImageType',''),
+        # lambda data: 'PRIMARY'   in data.get('ImageType',''), 
+        lambda data: 'MAG'       in data.get('ImageType',''), # on-scanner MP data
+        lambda data: get_private_float_or_zero(data,PRIVATE_TAGS['GEpolarizations_epi']) <= 2,
+    ],
+    'criteria': all,
+    'action':lambda data: [
+        append_dataset(data, "label", "mre_mag"),
+        # append_dataset(data, "label", "mre_ge"), # todo: this shouldn't be necessary for MP data... but workflow doesn't pick up previous
         setattr(data, "data_source", "seepi_mre"), 
     ]
 },
+{   'name':'mayo_ge_epi_mre_phs',
+    'rules': [
+        lambda data: private_value_equals(data,PRIVATE_TAGS['GESequence'],'epimre'),
+        lambda data: not data.get('SeriesDescription', '').startswith(('PE', 'FE', 'SS', 'Stiffness', 'RGB', 'Storage', 'Loss', 'Divergence')),
+        lambda data: data.get('PhotometricInterpretation', '') != 'RGB',
+        # lambda data: 'ORIGINAL'  in data.get('ImageType',''), 
+        # lambda data: 'PRIMARY'   in data.get('ImageType',''), 
+        lambda data: 'PHASE'     in data.get('ImageType',''), # on-scanner MP data
+        lambda data: get_private_float_or_zero(data,PRIVATE_TAGS['GEpolarizations_epi']) <= 2,
+    ],
+    'criteria': all,
+    'action':lambda data: [
+        append_dataset(data, "label", "mre_phs"),
+        # append_dataset(data, "label", "mre_ge"), # todo: this shouldn't be necessary for MP data... but workflow doesn't pick up previous
+        setattr(data, "data_source", "seepi_mre"), 
+    ]
+},
+
+
 ### Roger's IQ MRE (16 images, 4 idk, 4 mag, 8 phase)
 {   'name':'mayo_ge_iqgre_mre',
     'rules': [
@@ -349,20 +402,22 @@ RULES_MAYO_GE = [
 },
 ]
 
-# GE rules for 3VMRE (3DMRE) IQ data
+# GE rules for 3DMRE IQ data
 RULES_3VMRE_WIP = [
 # 3V EPI stored polarizations in 0019,107e (VR = SS, signed short (16 bit))
 {
     'name':'ge_3vmre_iq',
     'rules': [
         lambda data: private_value_equals(data,PRIVATE_TAGS['GESequence'],'epimre'),
-        lambda data: data.get('NumberOfTemporalPositions',0) > 1,
-        # lambda data: get_private_float_or_zero(data,PRIVATE_TAGS['GEpolarizations_epi']) > 1,
+        #lambda data: not data.get('SeriesDescription', '').startswith(('PE', 'FE', 'SS', 'Stiffness', 'RGB', 'Storage', 'Loss', 'Divergence', 'Magnitude', 'Confidence')),
+        lambda data: data.get('PhotometricInterpretation', '') != 'RGB',
+        lambda data: 'PRIMARY'  in data.get('ImageType',''), #  on-scanner recon has SECONDARY
+        lambda data: get_private_float_or_zero(data,PRIVATE_TAGS['GEpolarizations_epi']) > 2,
 
     ],
     'criteria': all,
     'action':lambda data: [
-        setattr(data, "label", "3v_iq"),
+        append_dataset(data, "label", "3v_iq"),
         setattr(data, "data_source", "3vmmdi"),
         setattr(data, "digest_type", "mmdi3v")
     ]
@@ -412,32 +467,33 @@ RULES_3VMRE_WIP = [
         setattr(data, "digest_type", "mmdi3v")
     ]
 },
-{
-    'name':'siemens_3vmre_wip924_mag', # applies to gre and epi
-    'rules': [
-        lambda data: 'M' in data.get('ImageType',''),
-        lambda data: 'WIP_epseMRE' in data.get('SequenceName','')
-    ],
-    'criteria': all,
-    'action': lambda data: [
-        append_dataset(data, "label", "mre_phs"),
-        setattr(data, "data_source", "3vmmdi"), 
-        setattr(data, "digest_type", "mmdi3v")
-    ]
-},
-{
-    'name':'siemens_3vmre_wip924_phs', # applies to gre and epi
-    'rules': [
-        lambda data: 'P' in data.get('ImageType',''),
-        lambda data: 'WIP_epseMRE' in data.get('SequenceName','')
-    ],
-    'criteria': all,
-    'action': lambda data: [
-        append_dataset(data, "label", "mre_phs"),
-        setattr(data, "data_source", "3vmmdi"), 
-        setattr(data, "digest_type", "mmdi3v")
-    ]
-},
+# JAH - disabling this until definitive way to define as 3D is found
+# {
+#     'name':'siemens_3vmre_wip924_mag', # applies to gre and epi
+#     'rules': [
+#         lambda data: 'M' in data.get('ImageType',''),
+#         lambda data: 'WIP_epseMRE' in data.get('SequenceName','')
+#     ],
+#     'criteria': all,
+#     'action': lambda data: [
+#         append_dataset(data, "label", "mre_phs"),
+#         setattr(data, "data_source", "3vmmdi"), 
+#         setattr(data, "digest_type", "mmdi3v")
+#     ]
+# },
+# {
+#     'name':'siemens_3vmre_wip924_phs', # applies to gre and epi
+#     'rules': [
+#         lambda data: 'P' in data.get('ImageType',''),
+#         lambda data: 'WIP_epseMRE' in data.get('SequenceName','')
+#     ],
+#     'criteria': all,
+#     'action': lambda data: [
+#         append_dataset(data, "label", "mre_phs"),
+#         setattr(data, "data_source", "3vmmdi"), 
+#         setattr(data, "digest_type", "mmdi3v")
+#     ]
+# },
 ]
 
 
@@ -453,6 +509,16 @@ MRE3D_LABELS_TO_ALC = {
     '3dmre_phs_z': 'mre.phs',
     '3dmre_stiff': 'mre.stiff',
     '3dmre_conf': 'mre.conf',
+}
+
+MRE3D_LABELS_USE_OFFSETS = {
+    '3dmre_mag_rms': True,
+    '3dmre_phs_z': True,
+    '3dmre_stiff': False,
+    '3dmre_conf': False,
+    '3dmre_attenuation': False,
+    '3dmre_storage': False,
+    '3dmre_loss': False,
 }
 
 RULES_3DMMDI =[
@@ -506,13 +572,16 @@ RULES_3DMMDI =[
 },
 ]
 
-MRE_RULES = [] \
+MRE_RULES_2D = [] \
     + RULES_CANON_MRE \
     + RULES_PHILIPS_MRE \
     + RULES_SIEMENS_MRE \
     + RULES_GE_MRE \
-    + RULES_MAYO_GE \
+    + RULES_MAYO_GE
+
+MRE_RULES_3D = [] \
     + RULES_3VMRE_WIP \
     + RULES_3DMMDI
 
+MRE_RULES = MRE_RULES_2D + MRE_RULES_3D
 
