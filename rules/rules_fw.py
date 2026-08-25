@@ -1,39 +1,39 @@
+from dataclasses import dataclass
+
 from pydicom import Dataset
 
+
+@dataclass(frozen=True)
+class FwLabelDef:
+    """Maps a hepsort label to its ALC key string and output behavior."""
+
+    alc: str
+    required: bool
+    has_timepoints: bool
+
 PRIVATE_TAGS={
-    'GESequence':0x0019109c,
+    'GESequence': (0x0019,0x109c),
 }
 
 
-FW_OPT_LABELS = [
-    'r2star',
-    'fat',
-]
-
-FW_REQ_LABELS = [
-    'pdff',
-    'water',
-]
-
-FW_LABELS_TO_ALC = {
-    'pdff'   : 'fw.ffrac',
-    'water'  : 'fw.water',
-    'r2star' : 'fw.r2star',
-    'fat'    : 'fw.fat',
-
+FW_ALC_DEFINITIONS = {
+    'pdff': FwLabelDef('fw.ffrac', True, False),
+    'water': FwLabelDef('fw.water', True, False),
+    'r2star': FwLabelDef('fw.r2star', False, False),
+    'fat': FwLabelDef('fw.fat', False, False),
 }
 
 FW_TIME_RANGE = 5.0
 
 def private_value_equals(data:Dataset, tag, value) -> bool:
     data_value = data.get(tag)
-    if data_value == None:
+    if data_value is None:
         return False
     return data_value.value == value
 
 def private_value_contains(data:Dataset, tag, value) -> bool:
     data_value = data.get(tag)
-    if data_value == None:
+    if data_value is None:
         return False
     return value in data_value.value
 
@@ -42,15 +42,14 @@ def private_value_contains(data:Dataset, tag, value) -> bool:
 #     lambda data: any('FAT_FRAC' in x for x in data.get('ImageType',[]))
 
 def append_dataset(data:Dataset, key:str, value:str):
-    if data.get(key, None) == None:
+    if data.get(key, None) is None:
         setattr(data, key, [value])
-        return
-    existing_value = data.get(key)
-    if type(existing_value) != list:
-        existing_value = [existing_value]
-    existing_value.append(value)
-    setattr(data, key, existing_value)
-    return
+    else:
+        existing_value = data.get(key)
+        if not isinstance(existing_value, list):
+            existing_value = [existing_value]
+        existing_value.append(value)
+        setattr(data, key, existing_value)
 
 
 RULES_GE_IDEAL=[

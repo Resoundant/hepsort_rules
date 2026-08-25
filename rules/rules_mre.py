@@ -1,57 +1,55 @@
+from dataclasses import dataclass
+
 from pydicom import Dataset
 
+
+@dataclass(frozen=True)
+class MreLabelDef:
+    """Maps a hepsort label to its ALC key string and output behavior."""
+
+    alc: str
+    required: bool
+    has_timepoints: bool
+
+
 PRIVATE_TAGS={
-    # 'GESequence':0x0019109c,
-    # 'GEpolarizations_epi': 0x0019107e,
-    # 'GEpolarizations_gre': 0x001910f2,
     'GESequence': (0x0019,0x109c),
     'GEpolarizations_epi': (0x0019,0x107e),
     'GEpolarizations_gre': (0x0019,0x10f2),
 }
 
-MRE_REQ_LABELS = [
-    'mre_mag',
-    'mre_phs',
-]
-
-MRE_LABELS_TO_ALC = {
-    'mre_mag': 'mre.mag',
-    'mre_phs': 'mre.phs',
+MRE_ALC_DEFINITIONS = {
+    'mre_mag': MreLabelDef('mre.mag', True, True),
+    'mre_phs': MreLabelDef('mre.phs', True, True),
+    'stiff': MreLabelDef('mre.stiff', False, False),
+    'conf': MreLabelDef('mre.conf', False, False),
+    'wave': MreLabelDef('mre.wave', False, True),
 }
-
 
 
 MRE_TIME_RANGE = 5.0
 
-# # this summarizes the labels that rules can apply that will be filtered 
-# MRE_LABELS = [
-#     'mre_mag',
-#     'mre_phs',
-#     'mre_ge',
-#     '3d_mre_mag',
-#     '3d_mre_phs',
-#     '3d_mre_stiff',
-# ]
-
-# LABELS_MAYO_GE = [
-#     'mre_iqepi',
-#     'mre_iqgre',
-# ]
 
 # data tagged as mre_mag and mre_phs will try to be matched together.
 # data tagged as mre_ge will go through a secondary step to split in half, first half if phs, second half is mag
 # data tagged as mre_iqgre will go through a secondary step to 4 idk + 4 mag + 8 phs
+MRE_SECONDARY_LABELING = {
+    'mre_ge_addtl_labels': ['mre_ge'], # convert ge_mre to mre_mag and mre_phs
+    'mre_iqgre_addtl_labels': ['mre_iqgre'], # convert ge_mre to mre_mag and mre_phs
+    'mre_iqepi_addtl_labels': ['mre_iqepi'],
+    'mre_mayoiron_addtl_labels': ['mayo_iron'],
+}
 
 
 def private_value_equals(data:Dataset, tag, value) -> bool:
     data_value = data.get(tag)
-    if data_value == None:
+    if data_value is None:
         return False
     return data_value.value == value
 
 def private_value_contains(data:Dataset, tag, value) -> bool:
     data_value = data.get(tag)
-    if data_value == None:
+    if data_value is None:
         return False
     return value in data_value.value
 
@@ -63,7 +61,7 @@ def get_private_float_or_zero(data:Dataset, tag) -> float:
         pass
     try:
         return float(data_value)
-    except:
+    except (TypeError, ValueError):
         return 0.0
 
 def append_dataset(data:Dataset, key:str, value:str):
@@ -497,28 +495,16 @@ RULES_3VMRE_WIP = [
 ]
 
 
-MRE_REQ_LABELS_3D = [
-    '3dmre_mag_rms',
-    '3dmre_phs_z',
-    '3dmre_stiff',
-    '3dmre_conf',
-]
-
-MRE3D_LABELS_TO_ALC = {
-    '3dmre_mag_rms': 'mre.mag',
-    '3dmre_phs_z': 'mre.phs',
-    '3dmre_stiff': 'mre.stiff',
-    '3dmre_conf': 'mre.conf',
-}
-
-MRE3D_LABELS_USE_OFFSETS = {
-    '3dmre_mag_rms': True,
-    '3dmre_phs_z': True,
-    '3dmre_stiff': False,
-    '3dmre_conf': False,
-    '3dmre_attenuation': False,
-    '3dmre_storage': False,
-    '3dmre_loss': False,
+MRE3D_ALC_DEFINITIONS = {
+    '3dmre_mag_rms': MreLabelDef('mre.mag', True, True),
+    '3dmre_phs_z': MreLabelDef('mre.phs', True, True),
+    '3dmre_stiff': MreLabelDef('mre.stiff', True, False),
+    '3dmre_conf': MreLabelDef('mre.conf', True, False),
+    '3dmre_storage': MreLabelDef('mre.storage', False, False),
+    '3dmre_loss': MreLabelDef('mre.loss', False, False),
+    '3dmre_attenuation': MreLabelDef('mre.attenuation', False, False),
+    '3dmre_volumetric_strain': MreLabelDef('mre.volumetric_strain', False, False),
+    '3dmre_divergence': MreLabelDef('mre.divergence', False, False),
 }
 
 RULES_3DMMDI =[
