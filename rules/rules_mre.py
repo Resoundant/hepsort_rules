@@ -277,6 +277,7 @@ RULES_MAYO_GE = [
         lambda data: data.get('PhotometricInterpretation', '') != 'RGB',
         lambda data: 'PROCESSED' in data.get('ImageType',''), # on-scanner M/P data
         lambda data: str(data.get('SeriesNumber',0)).endswith("1"), # on-scanner M/P data will end in 1, wave will not
+        lambda data: get_private_float_or_zero(data,PRIVATE_TAGS['GEpolarizations_epi']) <= 2, # don't flag on 3D data
     ],
     'criteria': all,
     'action':lambda data: [
