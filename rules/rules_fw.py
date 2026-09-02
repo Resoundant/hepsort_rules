@@ -23,7 +23,7 @@ FW_ALC_DEFINITIONS = {
     'fat': FwLabelDef('fw.fat', False, False),
 }
 
-FW_TIME_RANGE = 5.0
+FW_TIME_RANGE = 11.0
 
 def private_value_equals(data:Dataset, tag, value) -> bool:
     data_value = data.get(tag)
