@@ -16,6 +16,7 @@ PRIVATE_TAGS={
     'GESequence': (0x0019,0x109c),
     'GEpolarizations_epi': (0x0019,0x107e),
     'GEpolarizations_gre': (0x0019,0x10f2),
+    'Siemens_N_Polarizations': (0x0021,0x118e),
 }
 
 MRE_ALC_DEFINITIONS = {
@@ -75,6 +76,27 @@ def append_dataset(data:Dataset, key:str, value:str):
     setattr(data, key, existing_value)
     return
     
+def parse_siemens_0021_118e(str_data:str) -> list[str]:
+    '''
+    3D MRE: X_1_1_1_1_1_1_1_1_1_32_1_170_1_1_1_1_1_2_1_32_3_3
+    '''
+    parts = str_data.split(r"_")
+    if len(parts) != 23:
+        print(f"WARNING Siemens tag (0021,118e) has {len(parts)} elements, but we expected 23")
+    return parts
+
+def get_siemens_polarizations(data:Dataset) -> int:
+    tag_data = data.get(PRIVATE_TAGS['Siemens_N_Polarizations'], None)
+    if tag_data is None:
+        return 0
+    data_split = parse_siemens_0021_118e(tag_data.value)
+    try:
+        if len(data_split) == 23:
+            return int(data_split[-1])
+    except:
+        print(f"Could not extract n_polarizations from 0021,118e")
+    return 0
+
 
 RULES_CANON_MRE=[
 # {   'name':'canon_seepi_mre_mag',
@@ -212,11 +234,12 @@ RULES_SIEMENS_MRE=[
         lambda data: setattr(data, "data_source", "seepi_mre"),
     ]
 },
-{   'name':'siemens_epi2dwip_mre_mag',
+{   'name':'siemens_seepi_2dwip_mag',
     'rules': [
         lambda data: 'PRIMARY' in data.get('ImageType',''),
         lambda data: 'M' in data.get('ImageType',''),
-        lambda data: 'WIP_epseMRE' in data.get('SequenceName','')
+        lambda data: 'WIP_epseMRE' in data.get('SequenceName',''),
+        lambda data: get_siemens_polarizations(data) == 1,
     ],
     'criteria': all,
     'action': lambda data: [
@@ -224,12 +247,13 @@ RULES_SIEMENS_MRE=[
         setattr(data, "data_source", "seepi_mre"),
     ]
 },
-{   'name':'siemens_epi2dwip_mre_phs',
+{   'name':'siemens_seepi_2dwip_phs',
     'rules': [
         lambda data: 'PRIMARY' in data.get('ImageType',''),
         lambda data: 'P' in data.get('ImageType',''),
         lambda data: 'WV' not in data.get('ImageType',''),
-        lambda data: ('WIP_epseMRE' in data.get('SequenceName','') or ('WIP_e_' in data.get('SequenceName','')))
+        lambda data: ('WIP_epseMRE' in data.get('SequenceName','') or ('WIP_e_' in data.get('SequenceName',''))),
+        lambda data: get_siemens_polarizations(data) == 1,
     ],
     'criteria': all,
     'action':lambda data: [
@@ -466,33 +490,35 @@ RULES_3VMRE_WIP = [
         setattr(data, "digest_type", "mmdi3v")
     ]
 },
-# JAH - disabling this until definitive way to define as 3D is found
-# {
-#     'name':'siemens_3vmre_wip924_mag', # applies to gre and epi
-#     'rules': [
-#         lambda data: 'M' in data.get('ImageType',''),
-#         lambda data: 'WIP_epseMRE' in data.get('SequenceName','')
-#     ],
-#     'criteria': all,
-#     'action': lambda data: [
-#         append_dataset(data, "label", "mre_phs"),
-#         setattr(data, "data_source", "3vmmdi"), 
-#         setattr(data, "digest_type", "mmdi3v")
-#     ]
-# },
-# {
-#     'name':'siemens_3vmre_wip924_phs', # applies to gre and epi
-#     'rules': [
-#         lambda data: 'P' in data.get('ImageType',''),
-#         lambda data: 'WIP_epseMRE' in data.get('SequenceName','')
-#     ],
-#     'criteria': all,
-#     'action': lambda data: [
-#         append_dataset(data, "label", "mre_phs"),
-#         setattr(data, "data_source", "3vmmdi"), 
-#         setattr(data, "digest_type", "mmdi3v")
-#     ]
-# },
+
+{
+    'name':'siemens_3dmre_wip_mag', # applies to gre and epi
+    'rules': [
+        lambda data: 'M' in data.get('ImageType',''),
+        lambda data: 'WIP_epseMRE' in data.get('SequenceName',''),
+        lambda data: get_siemens_polarizations(data) >= 3,
+    ],
+    'criteria': all,
+    'action': lambda data: [
+        append_dataset(data, "label", "mre_mag"),
+        setattr(data, "data_source", "3vmmdi"), 
+        setattr(data, "digest_type", "mmdi3v")
+    ]
+},
+{
+    'name':'siemens_3dmre_wip_phs', # applies to gre and epi
+    'rules': [
+        lambda data: 'P' in data.get('ImageType',''),
+        lambda data: ('WIP_epseMRE' in data.get('SequenceName','') or ('WIP_e_' in data.get('SequenceName',''))),
+        lambda data: get_siemens_polarizations(data) >= 3,
+    ],
+    'criteria': all,
+    'action': lambda data: [
+        append_dataset(data, "label", "mre_phs"),
+        setattr(data, "data_source", "3vmmdi"), 
+        setattr(data, "digest_type", "mmdi3v")
+    ]
+},
 ]
 
 
