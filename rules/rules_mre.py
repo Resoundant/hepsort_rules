@@ -86,15 +86,23 @@ def parse_siemens_0021_118e(str_data:str) -> list[str]:
     return parts
 
 def get_siemens_polarizations(data:Dataset) -> int:
+    '''
+    attempts to extract the number of polarizations from siemens
+    private tag.
+    Returns 1 if  tag is missing (backwards compatibility for 2D WIP)
+    Returns 0 if tag is present but does not meet formatting expactations 
+    '''
     tag_data = data.get(PRIVATE_TAGS['Siemens_N_Polarizations'], None)
     if tag_data is None:
-        return 0
+        # print(f"Tag is missing, assuming polarizations is 1")
+        return 1
     data_split = parse_siemens_0021_118e(tag_data.value)
     try:
         if len(data_split) == 23:
             return int(data_split[-1])
     except:
-        print(f"Could not extract n_polarizations from 0021,118e")
+        # print(f"Could not extract n_polarizations from 0021,118e")
+        pass
     return 0
 
 
