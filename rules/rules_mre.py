@@ -291,7 +291,7 @@ RULES_GE_MRE=[
 RULES_MAYO_GE = [
 {   'name':'mayo_ge_fgre_mre',
     'rules': [
-        lambda data: private_value_equals(data,PRIVATE_TAGS['GESequence'],'fgremre'),
+        lambda data: private_value_contains(data,PRIVATE_TAGS['GESequence'],'fgremre'),
         lambda data: data.get('PhotometricInterpretation', '') != 'RGB',
         lambda data: 'SECONDARY' not in data.get('ImageType',''), # on-scanner wave data
     ],
