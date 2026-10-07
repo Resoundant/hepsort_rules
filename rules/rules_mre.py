@@ -431,7 +431,40 @@ RULES_MAYO_GE = [
         setattr(data, "data_source", "GE Mayo SE Iron"), 
     ]
 },
-]
+
+# These rules cover Roger's EPINEX tool for 2D free-breathing
+{   'name':'mayo_ge_epinex_mag',
+    'rules': [
+        lambda data: private_value_equals(data,PRIVATE_TAGS['GESequence'],'epimre'),
+        lambda data: not data.get('SeriesDescription', '').startswith(('PE', 'FE', 'SS', 'Stiffness', 'RGB', 'Storage', 'Loss', 'Divergence')),
+        lambda data: data.get('PhotometricInterpretation', '') != 'RGB',
+        lambda data: 'MAGZ' in data.get('ImageType',''), # EPINEX ORIGINAL\PRIMARY\MAG\MAGZ
+        lambda data: str(data.get('SeriesNumber',0)).endswith("1"), # on-scanner M/P data will end in 1, wave will not
+        lambda data: get_private_float_or_zero(data,PRIVATE_TAGS['GEpolarizations_epi']) <= 2, # don't flag on 3D data
+    ],
+    'criteria': all,
+    'action':lambda data: [
+        append_dataset(data, "label", "mre_mag"),
+        setattr(data, "data_source", "seepi_mre"),
+    ]
+},
+{   'name':'mayo_ge_epinex_phs',
+    'rules': [
+        lambda data: private_value_equals(data,PRIVATE_TAGS['GESequence'],'epimre'),
+        lambda data: not data.get('SeriesDescription', '').startswith(('PE', 'FE', 'SS', 'Stiffness', 'RGB', 'Storage', 'Loss', 'Divergence')),
+        lambda data: data.get('PhotometricInterpretation', '') != 'RGB',
+        lambda data: 'PHASEDIFFZ' in data.get('ImageType',''), # EPINEX ORIGINAL\PRIMARY\MAG\MAGZ
+        lambda data: str(data.get('SeriesNumber',0)).endswith("1"), # on-scanner M/P data will end in 1, wave will not
+        lambda data: get_private_float_or_zero(data,PRIVATE_TAGS['GEpolarizations_epi']) <= 2, # don't flag on 3D data
+    ],
+    'criteria': all,
+    'action':lambda data: [
+        append_dataset(data, "label", "mre_phs"),
+        setattr(data, "data_source", "seepi_mre"),
+    ]
+},
+
+] # RULES_MAYO
 
 # GE rules for 3DMRE IQ data
 RULES_3VMRE_WIP = [
@@ -527,6 +560,34 @@ RULES_3VMRE_WIP = [
         setattr(data, "digest_type", "mmdi3v")
     ]
 },
+
+{
+    'name':'uih_3dmre_wip_mag', # applies to gre and epi
+    'rules': [
+        lambda data: 'MAG' in data.get('ImageType',''),
+        lambda data: ('epi_se_mre3d' in data.get('SequenceName','')),
+    ],
+    'criteria': all,
+    'action': lambda data: [
+        append_dataset(data, "label", "mre_mag"),
+        setattr(data, "data_source", "3vmmdi"), 
+        setattr(data, "digest_type", "mmdi3v")
+    ]
+},
+{
+    'name':'uih_3dmre_wip_phs', # applies to gre and epi
+    'rules': [
+        lambda data: 'PHASE' in data.get('ImageType',''),
+        lambda data: ('epi_se_mre3d' in data.get('SequenceName','')),
+    ],
+    'criteria': all,
+    'action': lambda data: [
+        append_dataset(data, "label", "mre_mag"),
+        setattr(data, "data_source", "3vmmdi"), 
+        setattr(data, "digest_type", "mmdi3v")
+    ]
+},
+
 ]
 
 
@@ -546,7 +607,6 @@ RULES_3DMMDI =[
 {   'name':'3vmre_mag',
     'rules': [
         lambda data: 'MAGRMS' in data.get('ImageType',''),
-        # lambda data: 'DERIVED' in data.get('ImageType',''),
         lambda data: 'MMDI3D' in data.get('ImageType',''),
     ],
     'criteria': all,
@@ -555,10 +615,64 @@ RULES_3DMMDI =[
         setattr(data, "data_source", "MMDI 3D"),
     ]
 },
+{   'name':'3vmre_mag_x',
+    'rules': [
+        lambda data: 'MAGX' in data.get('ImageType',''),
+        lambda data: 'MMDI3D' in data.get('ImageType',''),
+    ],
+    'criteria': all,
+    'action':lambda data: [
+        append_dataset(data, "label", "3dmre_mag_rms"),
+        setattr(data, "data_source", "MMDI 3D"),
+    ]
+},
+{   'name':'3vmre_mag_y',
+    'rules': [
+        lambda data: 'MAGY' in data.get('ImageType',''),
+        lambda data: 'MMDI3D' in data.get('ImageType',''),
+    ],
+    'criteria': all,
+    'action':lambda data: [
+        append_dataset(data, "label", "3dmre_mag_rms"),
+        setattr(data, "data_source", "MMDI 3D"),
+    ]
+},
+{   'name':'3vmre_mag_z',
+    'rules': [
+        lambda data: 'MAGZ' in data.get('ImageType',''),
+        lambda data: 'MMDI3D' in data.get('ImageType',''),
+    ],
+    'criteria': all,
+    'action':lambda data: [
+        append_dataset(data, "label", "3dmre_mag_rms"),
+        setattr(data, "data_source", "MMDI 3D"),
+    ]
+},
+{   'name':'3vmre_phs_x',
+    'rules': [
+        lambda data: 'PHSDIFFX' in data.get('ImageType',''),
+        lambda data: 'MMDI3D' in data.get('ImageType',''),
+    ],
+    'criteria': all,
+    'action':lambda data: [
+        append_dataset(data, "label", "3dmre_phs_z"),
+        setattr(data, "data_source", "MMDI 3D"),
+    ]
+},
+{   'name':'3vmre_phs_y',
+    'rules': [
+        lambda data: 'PHSDIFFY' in data.get('ImageType',''),
+        lambda data: 'MMDI3D' in data.get('ImageType',''),
+    ],
+    'criteria': all,
+    'action':lambda data: [
+        append_dataset(data, "label", "3dmre_phs_z"),
+        setattr(data, "data_source", "MMDI 3D"),
+    ]
+},
 {   'name':'3vmre_phs_z',
     'rules': [
         lambda data: 'PHSDIFFZ' in data.get('ImageType',''),
-        # lambda data: 'DERIVED' in data.get('ImageType',''),
         lambda data: 'MMDI3D' in data.get('ImageType',''),
     ],
     'criteria': all,
@@ -570,7 +684,6 @@ RULES_3DMMDI =[
 {   'name':'3vmre_stiff',
     'rules': [
         lambda data: 'STIFFNESS' in data.get('ImageType',''),
-        # lambda data: 'DERIVED' in data.get('ImageType',''),
         lambda data: 'MMDI3D' in data.get('ImageType',''),
     ],
     'criteria': all,
@@ -582,7 +695,6 @@ RULES_3DMMDI =[
 {   'name':'3vmre_conf',
     'rules': [
         lambda data: 'CONFIDENCE' in data.get('ImageType',''),
-        # lambda data: 'DERIVED' in data.get('ImageType',''),
         lambda data: 'MMDI3D' in data.get('ImageType',''),
     ],
     'criteria': all,
@@ -591,6 +703,84 @@ RULES_3DMMDI =[
         setattr(data, "data_source", "MMDI 3D"),
     ]
 },
+{   'name':'3vmre_curl_x',
+    'rules': [
+        lambda data: 'CURLX' in data.get('ImageType',''),
+        lambda data: 'MMDI3D' in data.get('ImageType',''),
+    ],
+    'criteria': all,
+    'action':lambda data: [
+        append_dataset(data, "label", "3dmre_phs_z"),
+        setattr(data, "data_source", "MMDI 3D"),
+    ]
+},
+{   'name':'3vmre_curl_y',
+    'rules': [
+        lambda data: 'CURLY' in data.get('ImageType',''),
+        lambda data: 'MMDI3D' in data.get('ImageType',''),
+    ],
+    'criteria': all,
+    'action':lambda data: [
+        append_dataset(data, "label", "3dmre_phs_z"),
+        setattr(data, "data_source", "MMDI 3D"),
+    ]
+},
+{   'name':'3vmre_curl_z',
+    'rules': [
+        lambda data: 'CURLZ' in data.get('ImageType',''),
+        lambda data: 'MMDI3D' in data.get('ImageType',''),
+    ],
+    'criteria': all,
+    'action':lambda data: [
+        append_dataset(data, "label", "3dmre_phs_z"),
+        setattr(data, "data_source", "MMDI 3D"),
+    ]
+},
+{   'name':'3vmre_divergence',
+    'rules': [
+        lambda data: 'DIVERGENCE' in data.get('ImageType',''),
+        lambda data: 'MMDI3D' in data.get('ImageType',''),
+    ],
+    'criteria': all,
+    'action':lambda data: [
+        append_dataset(data, "label", "3dmre_conf"),
+        setattr(data, "data_source", "MMDI 3D"),
+    ]
+},
+{   'name':'3vmre_storage',
+    'rules': [
+        lambda data: 'STORAGE_MOD' in data.get('ImageType',''),
+        lambda data: 'MMDI3D' in data.get('ImageType',''),
+    ],
+    'criteria': all,
+    'action':lambda data: [
+        append_dataset(data, "label", "3dmre_conf"),
+        setattr(data, "data_source", "MMDI 3D"),
+    ]
+},
+{   'name':'3vmre_loss',
+    'rules': [
+        lambda data: 'LOSS_MOD' in data.get('ImageType',''),
+        lambda data: 'MMDI3D' in data.get('ImageType',''),
+    ],
+    'criteria': all,
+    'action':lambda data: [
+        append_dataset(data, "label", "3dmre_conf"),
+        setattr(data, "data_source", "MMDI 3D"),
+    ]
+},
+{   'name':'3vmre_atten',
+    'rules': [
+        lambda data: 'ATTENUATION' in data.get('ImageType',''),
+        lambda data: 'MMDI3D' in data.get('ImageType',''),
+    ],
+    'criteria': all,
+    'action':lambda data: [
+        append_dataset(data, "label", "3dmre_conf"),
+        setattr(data, "data_source", "MMDI 3D"),
+    ]
+},
+# TODO volumetric strain
 ]
 
 MRE_RULES_2D = [] \

@@ -152,6 +152,37 @@ RULES_PHILIPS_MDIXONDQUANT=[
 },
 ]
 
+
+RULES_UIH_FACT=[
+{   'name': 'uih_fact_pdff',
+    'rules': [
+        lambda data: 'gre_fact' in data.get('SequenceName',''),
+        lambda data: 'FF' in data.get('ImageType',''),
+    ],
+    'criteria': all,
+    'action':lambda data: append_dataset(data, "label", "pdff"),
+},
+{   'name': 'uih_fact_pdff',
+    'rules': [
+        lambda data: 'gre_fact' in data.get('SequenceName',''),
+        lambda data: 'W' in data.get('ImageType',''),
+    ],
+    'criteria': any,
+    'action':lambda data: append_dataset(data, "label", "pdff"),
+},
+{   'name': 'uih_fact_pdff',
+    'rules': [
+        lambda data: 'gre_fact' in data.get('SequenceName',''),
+        lambda data: 'WATER' in data.get('ImageType',''),
+    ],
+    'criteria': any,
+    'action':lambda data: append_dataset(data, "label", "pdff"),
+},
+]
+
+
+
+
 FW_RULES = [] \
     + RULES_SIEMENS_QDIXON \
     + RULES_GE_IDEAL \
