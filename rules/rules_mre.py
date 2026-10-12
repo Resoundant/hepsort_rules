@@ -743,7 +743,7 @@ RULES_3DMMDI =[
     ],
     'criteria': all,
     'action':lambda data: [
-        append_dataset(data, "label", "3dmre_conf"),
+        append_dataset(data, "label", "3dmre_divergence"),
         setattr(data, "data_source", "MMDI 3D"),
     ]
 },
@@ -754,7 +754,7 @@ RULES_3DMMDI =[
     ],
     'criteria': all,
     'action':lambda data: [
-        append_dataset(data, "label", "3dmre_conf"),
+        append_dataset(data, "label", "3dmre_storage"),
         setattr(data, "data_source", "MMDI 3D"),
     ]
 },
@@ -765,7 +765,7 @@ RULES_3DMMDI =[
     ],
     'criteria': all,
     'action':lambda data: [
-        append_dataset(data, "label", "3dmre_conf"),
+        append_dataset(data, "label", "3dmre_loss"),
         setattr(data, "data_source", "MMDI 3D"),
     ]
 },
@@ -776,7 +776,7 @@ RULES_3DMMDI =[
     ],
     'criteria': all,
     'action':lambda data: [
-        append_dataset(data, "label", "3dmre_conf"),
+        append_dataset(data, "label", "3dmre_attenuation"),
         setattr(data, "data_source", "MMDI 3D"),
     ]
 },
