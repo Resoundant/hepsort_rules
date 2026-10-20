@@ -260,6 +260,7 @@ RULES_SIEMENS_MRE=[
         lambda data: 'PRIMARY' in data.get('ImageType',''),
         lambda data: 'P' in data.get('ImageType',''),
         lambda data: 'WV' not in data.get('ImageType',''),
+        lambda data: not any(curl in data.get('ImageType','') for curl in ['CX','CY','CZ']),
         lambda data: ('WIP_epseMRE' in data.get('SequenceName','') or ('WIP_e_' in data.get('SequenceName',''))),
         lambda data: get_siemens_polarizations(data) == 1,
     ],
@@ -341,7 +342,7 @@ RULES_MAYO_GE = [
         
     ]
 },
-# this is to try to flag on-scanner recon contrasts
+# try to flag on-scanner recon contrasts to exclude them from the grouping
 {   'name':'mayo_ge_epi_mre_onscanner',
     'rules': [
         lambda data: private_value_equals(data,PRIVATE_TAGS['GESequence'],'epimre'),
@@ -356,6 +357,7 @@ RULES_MAYO_GE = [
         # setattr(data, "data_source", "seepi_mre"), 
     ]
 },
+
 
 #arrived with Free Breathing data, mag and phase image types are now tagged ORIGINAL/PRIMARY/MAG/MAGZ
 #and ORIGINAL/PRIMARY/PHASE/PHASEZ
@@ -550,6 +552,7 @@ RULES_3VMRE_WIP = [
     'name':'siemens_3dmre_wip_phs', # applies to gre and epi
     'rules': [
         lambda data: 'P' in data.get('ImageType',''),
+        lambda data: not any(curl in data.get('ImageType','') for curl in ['CX', 'CY', 'CZ']),
         lambda data: ('WIP_epseMRE' in data.get('SequenceName','') or ('WIP_e_' in data.get('SequenceName',''))),
         lambda data: get_siemens_polarizations(data) >= 3,
     ],
@@ -560,6 +563,20 @@ RULES_3VMRE_WIP = [
         setattr(data, "digest_type", "mmdi3v")
     ]
 },
+{
+    'name':'siemens_3dmre_wip_curl', # applies to gre and epi
+    'rules': [
+        lambda data: 'P' in data.get('ImageType',''),
+        lambda data: any(curl in data.get('ImageType','') for curl in ['CX', 'CY', 'CZ']),
+        lambda data: ('WIP_epseMRE' in data.get('SequenceName','') or ('WIP_e_' in data.get('SequenceName',''))),
+        lambda data: get_siemens_polarizations(data) >= 3,
+    ],
+    'criteria': all,
+    'action': lambda data: [
+        append_dataset(data, "label", "mre_other_curl"),
+    ]
+},
+
 
 {
     'name':'uih_3dmre_wip_mag', # applies to gre and epi
