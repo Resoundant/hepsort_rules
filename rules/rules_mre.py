@@ -19,13 +19,66 @@ PRIVATE_TAGS={
     'Siemens_N_Polarizations': (0x0021,0x118e),
 }
 
-MRE_ALC_DEFINITIONS = {
+# 'label', bool required, bool, has_timepoints
+
+
+MRE_MMDI2D_DEFINITIONS = {
     'mre_mag': MreLabelDef('mre.mag', True, True),
     'mre_phs': MreLabelDef('mre.phs', True, True),
     'stiff': MreLabelDef('mre.stiff', False, False),
     'conf': MreLabelDef('mre.conf', False, False),
     'wave': MreLabelDef('mre.wave', False, True),
 }
+
+# MMDI3V accepts either a magnitude/phase pair or a GE IQ series.
+# These are alternative input forms; do not combine their required labels.
+# Dedicated 3D labels keep these inputs separate from 2D MRE and from
+# derived 3D results. The MMDI3V writer emits paths, not ALC keys.
+MRE_MMDI3V_DEFINITIONS = {
+    '3dmre_mag': MreLabelDef('mre.mag', True, True),
+    '3dmre_phs': MreLabelDef('mre.phs', True, True),
+}
+
+MRE_MMDI3V_IQ_DEFINITIONS = {
+    '3v_iq': MreLabelDef('mre.iq', True, True),
+}
+
+
+# ALC1 definitions.
+# 2D MRE no longer allows alc1 with just mag/phs (and offline MMDI)
+# ALC1 must define all contrasts required by ALEC
+MRE_ALC1_DEFINITIONS = {
+    'mre_mag': MreLabelDef('mre.mag', True, True),
+    'mre_phs': MreLabelDef('mre.phs', True, True),
+    'stiff': MreLabelDef('mre.stiff', True, False),
+    'conf': MreLabelDef('mre.conf', True, False),
+    'wave': MreLabelDef('mre.wave', True, True),
+}
+
+MRE3D_ALC1_DEFINITIONS = {
+    '3dmre_mag_rms': MreLabelDef('mre.mag', True, True),
+    '3dmre_phs_z': MreLabelDef('mre.phs', True, True),
+    '3dmre_stiff': MreLabelDef('mre.stiff', True, False),
+    '3dmre_conf': MreLabelDef('mre.conf', True, False),
+    '3dmre_storage': MreLabelDef('mre.storage', False, False),
+    '3dmre_loss': MreLabelDef('mre.loss', False, False),
+    '3dmre_attenuation': MreLabelDef('mre.attenuation', False, False),
+    '3dmre_volumetric_strain': MreLabelDef('mre.volumetric_strain', False, False),
+    '3dmre_divergence': MreLabelDef('mre.divergence', False, False),
+}
+
+
+# Entries are (label definitions, digest type, time-match policy).
+# ALC1 must precede MMDI2D, which requires a subset of its contrasts.
+# Result maps can have fewer offsets than mag/phs: compare slice coverage.
+# Input pairs compare slice counts; IQ is matched within a single series only.
+SUPPORTED_DEFINITIONS = (
+    (MRE_ALC1_DEFINITIONS, "alc1", "slice_coverage"),
+    (MRE3D_ALC1_DEFINITIONS, "alc1", "slice_coverage"),
+    (MRE_MMDI3V_IQ_DEFINITIONS, "mmdi3v", None),
+    (MRE_MMDI3V_DEFINITIONS, "mmdi3v", "slice_counts"),
+    (MRE_MMDI2D_DEFINITIONS, "mmdi2d", "slice_counts"),
+)
 
 
 MRE_TIME_RANGE = 5.0
@@ -37,7 +90,6 @@ MRE_TIME_RANGE = 5.0
 MRE_SECONDARY_LABELING = {
     'mre_ge_addtl_labels': ['mre_ge'], # convert ge_mre to mre_mag and mre_phs
     'mre_iqgre_addtl_labels': ['mre_iqgre'], # convert ge_mre to mre_mag and mre_phs
-    'mre_iqepi_addtl_labels': ['mre_iqepi'],
     'mre_mayoiron_addtl_labels': ['mayo_iron'],
 }
 
@@ -338,7 +390,6 @@ RULES_MAYO_GE = [
     'action':lambda data: [
         append_dataset(data, "label", "mre_iqepi"),
         setattr(data, "data_source", "seepi_mre"), 
-        setattr(data, "digest_type", "mmdi2d"), 
         
     ]
 },
@@ -485,24 +536,9 @@ RULES_3VMRE_WIP = [
     'action':lambda data: [
         append_dataset(data, "label", "3v_iq"),
         setattr(data, "data_source", "3vmmdi"),
-        setattr(data, "digest_type", "mmdi3v")
     ]
 },
-# 3V GRE stored polarizations in 0019,10f2  (VR = SS)
-# {
-#     'name':'ge_3vmre_gre',
-#     'rules': [
-#         lambda data: compare_private_value(data,PRIVATE_TAGS['GESequence'],'gremre'), # TODO IDK this pulse seq name
-#         lambda data: data.get('NumberOfTemporalPositions',0) > 1,
-#         lambda data: get_private_float_or_zero(data,PRIVATE_TAGS['GEpolarizations_gre']) > 1,
 
-#     ],
-#     'criteria': all,
-#     'action':lambda data: [
-#         setattr(data, "label", "3v_iq"),
-#         setattr(data, "data_source", "3vmmdi"),
-#     ]
-# },
 {
     'name':'philips_3vmre_mag',
     'rules': [
@@ -513,9 +549,8 @@ RULES_3VMRE_WIP = [
     ],
     'criteria': all,
     'action': lambda data: [
-        append_dataset(data, "label", "mre_mag"),
+        append_dataset(data, "label", "3dmre_mag"),
         setattr(data, "data_source", "3vmmdi"),
-        setattr(data, "digest_type", "mmdi3v")
     ]
 },
 {
@@ -528,9 +563,8 @@ RULES_3VMRE_WIP = [
     ],
     'criteria': all,
     'action': lambda data: [
-        append_dataset(data, "label", "mre_phs"),
+        append_dataset(data, "label", "3dmre_phs"),
         setattr(data, "data_source", "3vmmdi"), 
-        setattr(data, "digest_type", "mmdi3v")
     ]
 },
 
@@ -543,9 +577,8 @@ RULES_3VMRE_WIP = [
     ],
     'criteria': all,
     'action': lambda data: [
-        append_dataset(data, "label", "mre_mag"),
+        append_dataset(data, "label", "3dmre_mag"),
         setattr(data, "data_source", "3vmmdi"), 
-        setattr(data, "digest_type", "mmdi3v")
     ]
 },
 {
@@ -558,9 +591,8 @@ RULES_3VMRE_WIP = [
     ],
     'criteria': all,
     'action': lambda data: [
-        append_dataset(data, "label", "mre_phs"),
+        append_dataset(data, "label", "3dmre_phs"),
         setattr(data, "data_source", "3vmmdi"), 
-        setattr(data, "digest_type", "mmdi3v")
     ]
 },
 {
@@ -586,9 +618,8 @@ RULES_3VMRE_WIP = [
     ],
     'criteria': all,
     'action': lambda data: [
-        append_dataset(data, "label", "mre_mag"),
+        append_dataset(data, "label", "3dmre_mag"),
         setattr(data, "data_source", "3vmmdi"), 
-        setattr(data, "digest_type", "mmdi3v")
     ]
 },
 {
@@ -599,26 +630,13 @@ RULES_3VMRE_WIP = [
     ],
     'criteria': all,
     'action': lambda data: [
-        append_dataset(data, "label", "mre_mag"),
+        append_dataset(data, "label", "3dmre_phs"),
         setattr(data, "data_source", "3vmmdi"), 
-        setattr(data, "digest_type", "mmdi3v")
     ]
 },
 
 ]
 
-
-MRE3D_ALC_DEFINITIONS = {
-    '3dmre_mag_rms': MreLabelDef('mre.mag', True, True),
-    '3dmre_phs_z': MreLabelDef('mre.phs', True, True),
-    '3dmre_stiff': MreLabelDef('mre.stiff', True, False),
-    '3dmre_conf': MreLabelDef('mre.conf', True, False),
-    '3dmre_storage': MreLabelDef('mre.storage', False, False),
-    '3dmre_loss': MreLabelDef('mre.loss', False, False),
-    '3dmre_attenuation': MreLabelDef('mre.attenuation', False, False),
-    '3dmre_volumetric_strain': MreLabelDef('mre.volumetric_strain', False, False),
-    '3dmre_divergence': MreLabelDef('mre.divergence', False, False),
-}
 
 RULES_3DMMDI =[
 {   'name':'3vmre_mag',
